@@ -9,10 +9,6 @@
 """
 
 import tensorflow as tf
-import tf.compat.v1 as tf_compat
-
-tf_compat.disable_v2_behavior()
-
 import numpy as np
 
 

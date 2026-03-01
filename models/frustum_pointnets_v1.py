@@ -105,9 +105,8 @@ def get_instance_seg_v1_net_with_image(
         net, [num_point, 1], padding="VALID", scope="maxpool"
     )
 
-    # Expand and tile image features (B, 512) -> (B, num_point, 1, 512)
+    # Expand image features (B, 512) -> (B, 1, 1, 512) for concat with global_feat
     image_feat_expanded = tf.expand_dims(tf.expand_dims(image_features, 1), 1)
-    image_feat_expanded = tf.tile(image_feat_expanded, [1, num_point, 1, 1])
 
     global_feat_with_image = tf.concat([global_feat, image_feat_expanded], axis=3)
     global_feat_expand = tf.tile(global_feat_with_image, [1, num_point, 1, 1])

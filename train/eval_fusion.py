@@ -17,7 +17,7 @@ import sys
 import argparse
 import numpy as np
 import tensorflow as tf
-import tf.compat.v1 as tf_compat
+import tensorflow.compat.v1 as tf_compat
 
 tf_compat.disable_v2_behavior()
 
@@ -33,7 +33,7 @@ from box_util import box3d_iou
 from train_util import get_batch
 
 # 导入模型
-import frustum_pointnets_v1_lite_fusion as MODEL
+import frustum_pointnets_v1_fusion as MODEL
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--gpu', type=int, default=0, help='GPU to use [default: 0]')
@@ -231,8 +231,8 @@ def evaluate():
                 gt_box = get_3d_box(gt_size, gt_angle, batch_center[i])
                 
                 # 预测框
-                pred_size = g_type_mean_size[CLASS2TYPE[sclass_pred_val[i]]] + sres_pred_val[i]
-                pred_angle = hclass_pred_val[i] * (2 * np.pi / 12) + hres_pred_val[i]
+                pred_size = g_type_mean_size[CLASS2TYPE[sclass_pred_val[i]]] + sres_pred_val[i, int(sclass_pred_val[i]), :]
+                pred_angle = hclass_pred_val[i] * (2 * np.pi / 12) + hres_pred_val[i, int(hclass_pred_val[i])]
                 pred_box = get_3d_box(pred_size, pred_angle, center_pred_val[i])
                 
                 # 计算IoU（简化版，只计算中心点距离作为代理指标）
