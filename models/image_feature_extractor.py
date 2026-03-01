@@ -6,8 +6,6 @@
 3. 支持多种训练模式：frozen/finetune/end2end
 4. 添加L2归一化使图像特征和点云特征尺度一致
 
-Author: Charles R. Qi (modified for multimodal fusion)
-Date: 2024
 """
 
 import tensorflow as tf
