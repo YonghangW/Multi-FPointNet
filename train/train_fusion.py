@@ -18,7 +18,7 @@ import argparse
 import importlib
 import numpy as np
 import tensorflow as tf
-import tf.compat.v1 as tf_compat
+import tensorflow.compat.v1 as tf_compat
 
 tf_compat.disable_v2_behavior()
 
@@ -34,12 +34,12 @@ import provider
 from train_util import get_batch
 
 # 使用lite fusion模型
-MODEL = importlib.import_module('frustum_pointnets_v1_lite_fusion')
+MODEL = importlib.import_module('frustum_pointnets_v1_fusion')
 
 # 解析参数
 parser = argparse.ArgumentParser()
 parser.add_argument('--gpu', type=int, default=0, help='GPU to use [default: 0]')
-parser.add_argument('--model', default='frustum_pointnets_v1_lite_fusion', help='Model name')
+parser.add_argument('--model', default='frustum_pointnets_v1_fusion', help='Model name')
 parser.add_argument('--log_dir', default='log_lite_fusion', help='Log dir [default: log_lite_fusion]')
 parser.add_argument('--num_point', type=int, default=1024, help='Point Number [default: 1024]')
 parser.add_argument('--max_epoch', type=int, default=200, help='Epoch to run [default: 200]')

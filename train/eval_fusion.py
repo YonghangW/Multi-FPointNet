@@ -17,7 +17,7 @@ import sys
 import argparse
 import numpy as np
 import tensorflow as tf
-import tf.compat.v1 as tf_compat
+import tensorflow.compat.v1 as tf_compat
 
 tf_compat.disable_v2_behavior()
 
@@ -33,7 +33,7 @@ from box_util import box3d_iou
 from train_util import get_batch
 
 # 导入模型
-import frustum_pointnets_v1_lite_fusion as MODEL
+import frustum_pointnets_v1_fusion as MODEL
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--gpu', type=int, default=0, help='GPU to use [default: 0]')
