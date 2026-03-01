@@ -7,7 +7,7 @@ Modified: 2024 for TF2 compatibility
 
 import numpy as np
 import tensorflow as tf
-import tf.compat.v1 as tf_compat
+import tensorflow.compat.v1 as tf_compat
 
 # Note: Call tf_compat.disable_v2_behavior() in training script before using these functions
 

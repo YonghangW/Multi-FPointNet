@@ -26,7 +26,7 @@ from model_util import point_cloud_masking, get_center_regression_net
 from model_util import placeholder_inputs, parse_output_to_tensors, get_loss
 
 # 使用优化后的图像特征提取器
-from image_feature_extractor_v2 import get_image_feature_extractor
+from image_feature_extractor import get_image_feature_extractor
 
 
 def get_instance_seg_v1_net(
