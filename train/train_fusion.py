@@ -18,7 +18,7 @@ import argparse
 import importlib
 import numpy as np
 import tensorflow as tf
-import tf.compat.v1 as tf_compat
+import tensorflow.compat.v1 as tf_compat
 
 tf_compat.disable_v2_behavior()
 
@@ -33,8 +33,8 @@ sys.path.append(os.path.join(ROOT_DIR, 'utils'))
 import provider
 from train_util import get_batch
 
-# 使用lite fusion模型
-MODEL = importlib.import_module('frustum_pointnets_v1_lite_fusion')
+# 使用fusion模型
+MODEL = importlib.import_module('frustum_pointnets_v1_fusion')
 
 # 解析参数
 parser = argparse.ArgumentParser()
@@ -277,16 +277,14 @@ def train():
             )
             
             # 损失
-            loss, loss_endpoints = MODEL.get_loss(
+            loss = MODEL.get_loss(
                 labels_pl, centers_pl, heading_class_label_pl,
                 heading_residual_label_pl, size_class_label_pl,
                 size_residual_label_pl, end_points
             )
             
-            # 记录各项损失
+            # 记录总损失
             tf_compat.summary.scalar('total_loss', loss)
-            for key, val in loss_endpoints.items():
-                tf_compat.summary.scalar(f'loss_{key}', val)
             
             # 学习率
             learning_rate = get_learning_rate(batch)
