@@ -1,15 +1,16 @@
-''' Util functions for training and evaluation.
+"""Util functions for training and evaluation.
 
 Author: Charles R. Qi
 Date: September 2017
-'''
+"""
 
 import numpy as np
 
-def get_batch(dataset, idxs, start_idx, end_idx,
-              num_point, num_channel,
-              from_rgb_detection=False):
-    ''' Prepare batch data for training/evaluation.
+
+def get_batch(
+    dataset, idxs, start_idx, end_idx, num_point, num_channel, from_rgb_detection=False
+):
+    """Prepare batch data for training/evaluation.
     batch size is determined by start_idx-end_idx
 
     Input:
@@ -22,12 +23,13 @@ def get_batch(dataset, idxs, start_idx, end_idx,
         from_rgb_detection: bool
     Output:
         batched data and label
-    '''
+    """
     if from_rgb_detection:
-        return get_batch_from_rgb_detection(dataset, idxs, start_idx, end_idx,
-            num_point, num_channel)
+        return get_batch_from_rgb_detection(
+            dataset, idxs, start_idx, end_idx, num_point, num_channel
+        )
 
-    bsize = end_idx-start_idx
+    bsize = end_idx - start_idx
     batch_data = np.zeros((bsize, num_point, num_channel))
     batch_label = np.zeros((bsize, num_point), dtype=np.int32)
     batch_center = np.zeros((bsize, 3))
@@ -37,48 +39,66 @@ def get_batch(dataset, idxs, start_idx, end_idx,
     batch_size_residual = np.zeros((bsize, 3))
     batch_rot_angle = np.zeros((bsize,))
     if dataset.one_hot:
-        batch_one_hot_vec = np.zeros((bsize,3)) # for car,ped,cyc
+        batch_one_hot_vec = np.zeros((bsize, 3))  # for car,ped,cyc
     for i in range(bsize):
         if dataset.one_hot:
-            ps,seg,center,hclass,hres,sclass,sres,rotangle,onehotvec = \
-                dataset[idxs[i+start_idx]]
+            ps, seg, center, hclass, hres, sclass, sres, rotangle, onehotvec = dataset[
+                idxs[i + start_idx]
+            ]
             batch_one_hot_vec[i] = onehotvec
         else:
-            ps,seg,center,hclass,hres,sclass,sres,rotangle = \
-                dataset[idxs[i+start_idx]]
-        batch_data[i,...] = ps[:,0:num_channel]
-        batch_label[i,:] = seg
-        batch_center[i,:] = center
+            ps, seg, center, hclass, hres, sclass, sres, rotangle = dataset[
+                idxs[i + start_idx]
+            ]
+        batch_data[i, ...] = ps[:, 0:num_channel]
+        batch_label[i, :] = seg
+        batch_center[i, :] = center
         batch_heading_class[i] = hclass
         batch_heading_residual[i] = hres
         batch_size_class[i] = sclass
         batch_size_residual[i] = sres
         batch_rot_angle[i] = rotangle
     if dataset.one_hot:
-        return batch_data, batch_label, batch_center, \
-            batch_heading_class, batch_heading_residual, \
-            batch_size_class, batch_size_residual, \
-            batch_rot_angle, batch_one_hot_vec
+        return (
+            batch_data,
+            batch_label,
+            batch_center,
+            batch_heading_class,
+            batch_heading_residual,
+            batch_size_class,
+            batch_size_residual,
+            batch_rot_angle,
+            batch_one_hot_vec,
+        )
     else:
-        return batch_data, batch_label, batch_center, \
-            batch_heading_class, batch_heading_residual, \
-            batch_size_class, batch_size_residual, batch_rot_angle
+        return (
+            batch_data,
+            batch_label,
+            batch_center,
+            batch_heading_class,
+            batch_heading_residual,
+            batch_size_class,
+            batch_size_residual,
+            batch_rot_angle,
+        )
 
-def get_batch_from_rgb_detection(dataset, idxs, start_idx, end_idx,
-                                 num_point, num_channel):
-    bsize = end_idx-start_idx
+
+def get_batch_from_rgb_detection(
+    dataset, idxs, start_idx, end_idx, num_point, num_channel
+):
+    bsize = end_idx - start_idx
     batch_data = np.zeros((bsize, num_point, num_channel))
     batch_rot_angle = np.zeros((bsize,))
     batch_prob = np.zeros((bsize,))
     if dataset.one_hot:
-        batch_one_hot_vec = np.zeros((bsize,3)) # for car,ped,cyc
+        batch_one_hot_vec = np.zeros((bsize, 3))  # for car,ped,cyc
     for i in range(bsize):
         if dataset.one_hot:
-            ps,rotangle,prob,onehotvec = dataset[idxs[i+start_idx]]
+            ps, rotangle, prob, onehotvec = dataset[idxs[i + start_idx]]
             batch_one_hot_vec[i] = onehotvec
         else:
-            ps,rotangle,prob = dataset[idxs[i+start_idx]]
-        batch_data[i,...] = ps[:,0:num_channel]
+            ps, rotangle, prob = dataset[idxs[i + start_idx]]
+        batch_data[i, ...] = ps[:, 0:num_channel]
         batch_rot_angle[i] = rotangle
         batch_prob[i] = prob
     if dataset.one_hot:
@@ -87,3 +107,63 @@ def get_batch_from_rgb_detection(dataset, idxs, start_idx, end_idx,
         return batch_data, batch_rot_angle, batch_prob
 
 
+def get_batch_multimodal(dataset, idxs, start_idx, end_idx, num_point, num_channel):
+    """Get batch from multimodal dataset."""
+    batch_size = end_idx - start_idx
+    batch_data = np.zeros((batch_size, num_point, num_channel))
+    batch_image = np.zeros((batch_size, 224, 224, 3))
+    batch_label = np.zeros((batch_size, num_point), dtype=np.int32)
+    batch_center = np.zeros((batch_size, 3))
+    batch_hclass = np.zeros((batch_size,), dtype=np.int32)
+    batch_hres = np.zeros((batch_size,))
+    batch_sclass = np.zeros((batch_size,), dtype=np.int32)
+    batch_sres = np.zeros((batch_size, 3))
+    batch_rot_angle = np.zeros((batch_size,))
+    batch_one_hot_vec = np.zeros((batch_size, 3))
+
+    for i in range(batch_size):
+        if dataset.from_rgb_detection:
+            if dataset.one_hot:
+                point_set, image_crop, rot_angle, prob, one_hot_vec = dataset[
+                    idxs[i + start_idx]
+                ]
+            else:
+                point_set, image_crop, rot_angle, prob = dataset[idxs[i + start_idx]]
+                one_hot_vec = np.zeros(3)
+        else:
+            (
+                point_set,
+                image_crop,
+                seg,
+                box3d_center,
+                angle_class,
+                angle_residual,
+                size_class,
+                size_residual,
+                rot_angle,
+                one_hot_vec,
+            ) = dataset[idxs[i + start_idx]]
+            batch_label[i] = seg
+            batch_center[i] = box3d_center
+            batch_hclass[i] = angle_class
+            batch_hres[i] = angle_residual
+            batch_sclass[i] = size_class
+            batch_sres[i] = size_residual
+
+        batch_data[i] = point_set[:, :num_channel]
+        batch_image[i] = image_crop
+        batch_rot_angle[i] = rot_angle
+        batch_one_hot_vec[i] = one_hot_vec
+
+    return (
+        batch_data,
+        batch_image,
+        batch_label,
+        batch_center,
+        batch_hclass,
+        batch_hres,
+        batch_sclass,
+        batch_sres,
+        batch_rot_angle,
+        batch_one_hot_vec,
+    )

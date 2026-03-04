@@ -10,7 +10,6 @@
 
 import tensorflow as tf
 import tf.compat.v1 as tf_compat
-
 tf_compat.disable_v2_behavior()
 
 import numpy as np
@@ -73,7 +72,9 @@ class MultiHeadAttention2D(tf.keras.layers.Layer):
         self.num_heads = num_heads
         self.dropout_rate = dropout_rate
 
-        assert d_model % num_heads == 0, f"d_model({d_model}) must be divisible by num_heads({num_heads})"
+        assert d_model % num_heads == 0, (
+            f"d_model({d_model}) must be divisible by num_heads({num_heads})"
+        )
         self.d_k = d_model // num_heads
 
     def build(self, input_shape):
@@ -112,9 +113,15 @@ class MultiHeadAttention2D(tf.keras.layers.Layer):
         V = self.W_v(values_flat)
 
         # Split into multiple heads: (B, num_heads, H*W, d_k)
-        Q = tf.transpose(tf.reshape(Q, [batch_size, seq_len, self.num_heads, self.d_k]), [0, 2, 1, 3])
-        K = tf.transpose(tf.reshape(K, [batch_size, seq_len, self.num_heads, self.d_k]), [0, 2, 1, 3])
-        V = tf.transpose(tf.reshape(V, [batch_size, seq_len, self.num_heads, self.d_k]), [0, 2, 1, 3])
+        Q = tf.transpose(
+            tf.reshape(Q, [batch_size, seq_len, self.num_heads, self.d_k]), [0, 2, 1, 3]
+        )
+        K = tf.transpose(
+            tf.reshape(K, [batch_size, seq_len, self.num_heads, self.d_k]), [0, 2, 1, 3]
+        )
+        V = tf.transpose(
+            tf.reshape(V, [batch_size, seq_len, self.num_heads, self.d_k]), [0, 2, 1, 3]
+        )
 
         # Scaled dot-product attention
         scores = tf.matmul(Q, K, transpose_b=True) / tf.sqrt(
@@ -126,8 +133,12 @@ class MultiHeadAttention2D(tf.keras.layers.Layer):
             attention_weights = self.dropout(attention_weights, training=training)
 
         attention_output = tf.matmul(attention_weights, V)  # (B, num_heads, H*W, d_k)
-        attention_output = tf.transpose(attention_output, [0, 2, 1, 3])  # (B, H*W, num_heads, d_k)
-        attention_output = tf.reshape(attention_output, [batch_size, seq_len, self.d_model])
+        attention_output = tf.transpose(
+            attention_output, [0, 2, 1, 3]
+        )  # (B, H*W, num_heads, d_k)
+        attention_output = tf.reshape(
+            attention_output, [batch_size, seq_len, self.d_model]
+        )
 
         output = self.W_o(attention_output)  # (B, H*W, d_model)
 
@@ -164,7 +175,7 @@ class TransformerEncoderBlock(tf.keras.layers.Layer):
 
         self.pos_encoding = PositionalEncoding2D(height, width, self.d_model)
         self.mha = MultiHeadAttention2D(self.d_model, self.num_heads, self.dropout_rate)
-        
+
         # Feed-forward network
         self.ffn_dense1 = tf.keras.layers.Dense(self.dff, activation="relu")
         self.ffn_dense2 = tf.keras.layers.Dense(self.d_model)
@@ -222,7 +233,7 @@ class TransformerEncoderBlock(tf.keras.layers.Layer):
 
 class ImageFeatureExtractor(tf.keras.Model):
     """Optimized Image feature extractor using ResNet-50 and Transformer.
-    
+
     主要改进：
     1. 1x1卷积降维：2048 -> 512，减少Transformer计算量
     2. Transformer在512维上计算，更高效
@@ -238,7 +249,7 @@ class ImageFeatureExtractor(tf.keras.Model):
         dff=2048,
         dropout_rate=0.1,
         training_mode="finetune",  # 'frozen', 'finetune', 'end2end'
-        freeze_at=4,  # for finetune mode: 0=none, 2=stage2, 3=stage3, 4=stage4, 5=all
+        freeze_at=0,  # for finetune mode: 0=none, 2=stage2, 3=stage3, 4=stage4, 5=all
         **kwargs,
     ):
         """
@@ -248,7 +259,7 @@ class ImageFeatureExtractor(tf.keras.Model):
             num_heads: 注意力头数
             dff: FFN中间层维度
             dropout_rate: dropout率
-            training_mode: 
+            training_mode:
                 - 'frozen': 完全冻结ResNet，只训练Transformer
                 - 'finetune': 冻结ResNet前N个stage，微调后几个stage
                 - 'end2end': 端到端训练所有层
@@ -276,13 +287,15 @@ class ImageFeatureExtractor(tf.keras.Model):
             filters=output_dim,  # 512
             kernel_size=1,
             strides=1,
-            padding='same',
-            activation='relu',
-            name='dim_reduction_conv'
+            padding="same",
+            activation="relu",
+            name="dim_reduction_conv",
         )
-        
+
         # BatchNorm after dimension reduction
-        self.dim_reduction_bn = tf.keras.layers.BatchNormalization(name='dim_reduction_bn')
+        self.dim_reduction_bn = tf.keras.layers.BatchNormalization(
+            name="dim_reduction_bn"
+        )
 
         # Transformer blocks (now operating on 512-dim instead of 2048-dim)
         self.transformer_blocks = []
@@ -304,11 +317,10 @@ class ImageFeatureExtractor(tf.keras.Model):
         self.output_proj = tf.keras.layers.Dense(
             output_dim, activation=None, name="feature_projection"
         )
-        
+
         # L2 normalization for better feature compatibility with point cloud
         self.feature_norm = tf.keras.layers.Lambda(
-            lambda x: tf.nn.l2_normalize(x, axis=1),
-            name="feature_l2_norm"
+            lambda x: tf.nn.l2_normalize(x, axis=1), name="feature_l2_norm"
         )
 
     def _setup_resnet_trainability(self):
@@ -317,42 +329,52 @@ class ImageFeatureExtractor(tf.keras.Model):
             # 完全冻结ResNet，只训练Transformer
             self.resnet.trainable = False
             print("[ImageFeatureExtractor] Mode: FROZEN - ResNet fully frozen")
-            
+
         elif self.training_mode == "end2end":
             # 端到端训练，全部解冻
             self.resnet.trainable = True
             print("[ImageFeatureExtractor] Mode: END2END - All layers trainable")
-            
+
         elif self.training_mode == "finetune":
             # 分层解冻策略
             # ResNet50结构: conv1 -> conv2_x -> conv3_x -> conv4_x -> conv5_x
             layer_names = [layer.name for layer in self.resnet.layers]
-            
+
             # 找到各个stage的分界点
             stage_starts = {
-                'conv1': 0,
-                'conv2': next((i for i, n in enumerate(layer_names) if 'conv2_block' in n), None),
-                'conv3': next((i for i, n in enumerate(layer_names) if 'conv3_block' in n), None),
-                'conv4': next((i for i, n in enumerate(layer_names) if 'conv4_block' in n), None),
-                'conv5': next((i for i, n in enumerate(layer_names) if 'conv5_block' in n), None),
+                "conv1": 0,
+                "conv2": next(
+                    (i for i, n in enumerate(layer_names) if "conv2_block" in n), None
+                ),
+                "conv3": next(
+                    (i for i, n in enumerate(layer_names) if "conv3_block" in n), None
+                ),
+                "conv4": next(
+                    (i for i, n in enumerate(layer_names) if "conv4_block" in n), None
+                ),
+                "conv5": next(
+                    (i for i, n in enumerate(layer_names) if "conv5_block" in n), None
+                ),
             }
-            
+
             # 根据freeze_at确定冻结范围
             freeze_until = {
                 0: 0,  # 不冻结
-                2: stage_starts.get('conv3', 0),  # 冻结conv1, conv2
-                3: stage_starts.get('conv4', 0),  # 冻结到conv3
-                4: stage_starts.get('conv5', 0),  # 冻结到conv4
+                2: stage_starts.get("conv3", 0),  # 冻结conv1, conv2
+                3: stage_starts.get("conv4", 0),  # 冻结到conv3
+                4: stage_starts.get("conv5", 0),  # 冻结到conv4
                 5: len(layer_names),  # 冻结全部ResNet
-            }.get(self.freeze_at, stage_starts.get('conv5', 0))
-            
+            }.get(self.freeze_at, stage_starts.get("conv5", 0))
+
             # 设置可训练性
             for i, layer in enumerate(self.resnet.layers):
                 layer.trainable = i >= freeze_until
-                
+
             trainable_count = sum(1 for l in self.resnet.layers if l.trainable)
             total_count = len(self.resnet.layers)
-            print(f"[ImageFeatureExtractor] Mode: FINETUNE (freeze_at={self.freeze_at})")
+            print(
+                f"[ImageFeatureExtractor] Mode: FINETUNE (freeze_at={self.freeze_at})"
+            )
             print(f"  - Frozen layers: {freeze_until}/{total_count}")
             print(f"  - Trainable layers: {trainable_count}/{total_count}")
 
@@ -364,12 +386,13 @@ class ImageFeatureExtractor(tf.keras.Model):
             feature_map: (B, H', W', 512) - 降维后的特征图
         """
         # ResNet-50 feature extraction
-        x = self.resnet(inputs, training=training)  # (B, 7, 7, 2048)
-        
+        x = tf.keras.applications.resnet50.preprocess_input(inputs)
+        x = self.resnet(x, training=training)  # (B, 7, 7, 2048)
+
         # 1x1卷积降维：2048 -> 512
         x = self.dim_reduction(x)  # (B, 7, 7, 512)
         x = self.dim_reduction_bn(x, training=training)
-        
+
         feature_map = x  # 保存降维后的特征图
 
         # Apply transformer blocks on 512-dim features (much more efficient!)
@@ -411,7 +434,7 @@ def get_image_feature_extractor(
     dff=2048,
     dropout_rate=0.1,
     training_mode="finetune",
-    freeze_at=4,
+    freeze_at=0,
     scope="image_feature_extractor",
 ):
     """Legacy function interface for image feature extraction.
@@ -439,6 +462,7 @@ def get_image_feature_extractor(
         dropout_rate=dropout_rate,
         training_mode=training_mode,
         freeze_at=freeze_at,
+        name=scope,
     )
 
     image_features, feature_map = extractor(image_input, training=is_training)
@@ -465,7 +489,7 @@ def get_image_feature_v2(
         num_heads=num_heads,
         dropout_rate=dropout_rate,
         training_mode=training_mode,
-        freeze_at=4,
+        freeze_at=0,
     )
 
 
@@ -485,18 +509,20 @@ if __name__ == "__main__":
             num_transformer_blocks=2,
             num_heads=8,
             training_mode=mode,
-            freeze_at=4 if mode == "finetune" else 0,
+            freeze_at=0 if mode == "finetune" else 0,
         )
-        
+
         features, feature_map = extractor(inputs, training=False)
 
         print(f"Input shape: {inputs.shape}")
         print(f"Feature map shape: {feature_map.shape}")  # Should be (4, 7, 7, 512)
         print(f"Image features shape: {features.shape}")  # Should be (4, 512)
-        
+
         # 检查L2归一化
         feature_norms = tf.norm(features, axis=1)
-        print(f"Feature L2 norms (should be ~1.0): mean={tf.reduce_mean(feature_norms):.4f}")
+        print(
+            f"Feature L2 norms (should be ~1.0): mean={tf.reduce_mean(feature_norms):.4f}"
+        )
 
     print("\n" + "=" * 60)
     print("All tests passed!")

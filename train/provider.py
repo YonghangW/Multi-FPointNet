@@ -419,12 +419,14 @@ class FrustumDatasetMultimodal(FrustumDataset):
         from_rgb_detection=False,
         one_hot=False,
         kitti_root=None,
+        img_crops_dir=None,
     ):
         """Input:
         npoints: int scalar
         split: string, train or val
         image_size: int, image crop size (default 224x224)
-        ...
+        img_crops_dir: string, path to directory containing offline crops.
+                       If provided, loads crops from here instead of on-the-fly cropping.
         """
         super(FrustumDatasetMultimodal, self).__init__(
             npoints,
@@ -438,6 +440,8 @@ class FrustumDatasetMultimodal(FrustumDataset):
         )
 
         self.image_size = image_size
+        self.img_crops_dir = img_crops_dir
+
         if kitti_root is None:
             self.kitti_root = os.path.join(ROOT_DIR, "dataset/KITTI/object")
         else:
@@ -455,9 +459,14 @@ class FrustumDatasetMultimodal(FrustumDataset):
         """Get index-th element with image crop."""
         data = super(FrustumDatasetMultimodal, self).__getitem__(index)
 
+        # Load image crop (offline or online)
+        if self.img_crops_dir is not None:
+            image_crop = self.get_offline_image_crop(index)
+        else:
+            image_crop = self.get_image_crop(index)
+
         if self.from_rgb_detection:
             point_set, rot_angle, prob, one_hot_vec = data
-            image_crop = self.get_image_crop(index)
             if self.one_hot:
                 return point_set, image_crop, rot_angle, prob, one_hot_vec
             else:
@@ -474,8 +483,6 @@ class FrustumDatasetMultimodal(FrustumDataset):
                 rot_angle,
                 one_hot_vec,
             ) = data
-
-            image_crop = self.get_image_crop(index)
 
             if self.one_hot:
                 return (
@@ -502,6 +509,34 @@ class FrustumDatasetMultimodal(FrustumDataset):
                     size_residual,
                     rot_angle,
                 )
+
+    def get_offline_image_crop(self, index):
+        """Load offline generated image crop."""
+        if self.cv2 is None:
+            return np.zeros((self.image_size, self.image_size, 3), dtype=np.float32)
+
+        # Filename format: ID_INDEX.png (matches scripts/generate_kitti_image_crops.py)
+        # Note: id_list contains the image ID (e.g. 123 for 000123.png)
+        img_id = self.id_list[index]
+        crop_filename = "%06d_%06d.png" % (int(img_id), index)
+        crop_path = os.path.join(self.img_crops_dir, crop_filename)
+
+        if not os.path.exists(crop_path):
+            return np.zeros((self.image_size, self.image_size, 3), dtype=np.float32)
+
+        img = self.cv2.imread(crop_path)
+        if img is None:
+            return np.zeros((self.image_size, self.image_size, 3), dtype=np.float32)
+
+        # Ensure correct size (bilinear resize if needed)
+        if img.shape[0] != self.image_size or img.shape[1] != self.image_size:
+            img = self.cv2.resize(img, (self.image_size, self.image_size))
+
+        # Normalize to [-1, 1]
+        img = img.astype(np.float32) / 255.0
+        img = (img - 0.5) * 2.0
+
+        return img
 
     def get_image_crop(self, index):
         """Get image crop from 2D bounding box."""
@@ -543,68 +578,6 @@ class FrustumDatasetMultimodal(FrustumDataset):
         img_crop = (img_crop - 0.5) * 2.0
 
         return img_crop
-
-
-def get_batch_multimodal(dataset, idxs, start_idx, end_idx, num_point, num_channel):
-    """Get batch from multimodal dataset."""
-    batch_size = end_idx - start_idx
-    batch_data = np.zeros((batch_size, num_point, num_channel))
-    batch_image = np.zeros((batch_size, 224, 224, 3))
-    batch_label = np.zeros((batch_size, num_point), dtype=np.int32)
-    batch_center = np.zeros((batch_size, 3))
-    batch_hclass = np.zeros((batch_size,), dtype=np.int32)
-    batch_hres = np.zeros((batch_size,))
-    batch_sclass = np.zeros((batch_size,), dtype=np.int32)
-    batch_sres = np.zeros((batch_size, 3))
-    batch_rot_angle = np.zeros((batch_size,))
-    batch_one_hot_vec = np.zeros((batch_size, 3))
-
-    for i in range(batch_size):
-        if dataset.from_rgb_detection:
-            if dataset.one_hot:
-                point_set, image_crop, rot_angle, prob, one_hot_vec = dataset[
-                    idxs[i + start_idx]
-                ]
-            else:
-                point_set, image_crop, rot_angle, prob = dataset[idxs[i + start_idx]]
-                one_hot_vec = np.zeros(3)
-        else:
-            (
-                point_set,
-                image_crop,
-                seg,
-                box3d_center,
-                angle_class,
-                angle_residual,
-                size_class,
-                size_residual,
-                rot_angle,
-                one_hot_vec,
-            ) = dataset[idxs[i + start_idx]]
-            batch_label[i] = seg
-            batch_center[i] = box3d_center
-            batch_hclass[i] = angle_class
-            batch_hres[i] = angle_residual
-            batch_sclass[i] = size_class
-            batch_sres[i] = size_residual
-
-        batch_data[i] = point_set[:, :num_channel]
-        batch_image[i] = image_crop
-        batch_rot_angle[i] = rot_angle
-        batch_one_hot_vec[i] = one_hot_vec
-
-    return (
-        batch_data,
-        batch_image,
-        batch_label,
-        batch_center,
-        batch_hclass,
-        batch_hres,
-        batch_sclass,
-        batch_sres,
-        batch_rot_angle,
-        batch_one_hot_vec,
-    )
 
 
 if __name__ == "__main__":
